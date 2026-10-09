@@ -190,6 +190,7 @@ public final class Config {
     private LazyReference<List<DamageIndicator>> damage_indicator$schemes = LazyReference.untilNotNull(List::of);
 
     private boolean furniture$hide_base_entity;
+    private boolean furniture$head_display_as_armor_stand;
     private ColliderType furniture$collision_entity_type;
     private boolean furniture$light_system;
 
@@ -631,6 +632,7 @@ public final class Config {
 
         // furniture
         this.furniture$hide_base_entity = config.getBoolean("furniture.hide-base-entity", true);
+        this.furniture$head_display_as_armor_stand = !"item_display".equalsIgnoreCase(config.getString("furniture.display-entity", "armor_stand"));
         this.furniture$collision_entity_type = ColliderType.valueOf(config.getString("furniture.collision-entity-type", "interaction").toUpperCase(Locale.ENGLISH));
         if (this.firstTime) {
             this.furniture$light_system = config.getBoolean("furniture.light-system.enable", true);
@@ -1282,6 +1284,10 @@ public final class Config {
 
     public static boolean hideBaseEntity() {
         return instance.furniture$hide_base_entity;
+    }
+
+    public static boolean headDisplayAsArmorStand() {
+        return instance.furniture$head_display_as_armor_stand;
     }
 
     public static int customModelDataStartingValue(Key material) {

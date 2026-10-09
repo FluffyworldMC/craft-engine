@@ -174,6 +174,8 @@ public final class ItemDisplayFurnitureElementConfig implements TransformableFur
         private static final String[] SKY_LIGHT = ConfigKeys.of("sky_light");
         private static final String[] VIEW_RANGE = ConfigKeys.of("view_range");
         private static final String[] TINT_SOURCE = ConfigKeys.of("tint_source(s)|copy_data");
+        /** Vanilla armor-stand head items are rendered at this scale. Item display context head does not apply it. */
+        private static final float ARMOR_STAND_HEAD_SCALE = 0.625f;
 
         @Override
         public ItemDisplayFurnitureElementConfig create(ConfigSection section) {
@@ -181,16 +183,22 @@ public final class ItemDisplayFurnitureElementConfig implements TransformableFur
             List<Condition<PlayerContext>> conditions = section.getSectionList(ConfigKeys.of("condition(s)"), CommonConditions::fromConfig);
             boolean legacyTintSource = section.getBoolean(APPLY_DYED_COLOR, false);
             Vector3f scale = new Vector3f(section.getVector3f("scale", ConfigConstants.NORMAL_SCALE));
-            scale.mul(0.625f);
+            Key itemId = section.getNonNullIdentifier("item");
+            ItemDisplayContext displayContext = section.getEnum(DISPLAY_CONTEXT, ItemDisplayContext.class, ItemDisplayContext.NONE);
+            Vector3f position = new Vector3f(section.getVector3f("position", ConfigConstants.ZERO_VECTOR3));
+            if (displayContext == ItemDisplayContext.HEAD) {
+                scale.mul(ARMOR_STAND_HEAD_SCALE);
+                position.y += HeadDisplayGrounding.lift(itemId) * scale.y;
+            }
             return new ItemDisplayFurnitureElementConfig(
-                    section.getNonNullIdentifier("item"),
+                    itemId,
                     scale,
-                    section.getVector3f("position", ConfigConstants.ZERO_VECTOR3),
+                    position,
                     section.getVector3f("translation", ConfigConstants.ZERO_VECTOR3),
                     section.getFloat("pitch", 0f),
                     section.getFloat("yaw", 0f),
                     section.getQuaternion("rotation", ConfigConstants.ZERO_QUATERNION),
-                    section.getEnum(DISPLAY_CONTEXT, ItemDisplayContext.class, ItemDisplayContext.NONE),
+                    displayContext,
                     section.getEnum("billboard", Billboard.class, Billboard.FIXED),
                     section.getFloat(SHADOW_RADIUS, 0f),
                     section.getFloat(SHADOW_STRENGTH, 1f),

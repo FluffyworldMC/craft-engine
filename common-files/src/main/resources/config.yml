@@ -420,6 +420,13 @@ block:
     async: true
 
 furniture:
+  # Entity used for item_display elements whose display_transform is head.
+  # armor_stand matches ItemsAdder and Blockbench head poses, including size and ground position.
+  # item_display keeps the display entity and applies a head-scale compensation.
+  # Built-in furniture that does not set display_transform stays an item display.
+  # Reload to apply.
+  display-entity: armor_stand
+
   # Hide technical entities used for storing furniture metadata.
   # NOTE:
   # - These are INVISIBLE entities used internally for tracking furniture states

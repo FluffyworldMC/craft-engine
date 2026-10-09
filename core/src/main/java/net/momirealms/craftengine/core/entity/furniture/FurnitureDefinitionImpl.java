@@ -16,7 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-class FurnitureDefinitionImpl implements FurnitureDefinition {
+public class FurnitureDefinitionImpl implements FurnitureDefinition {
     private final Key id;
     private final FurnitureSettings settings;
     private final Map<String, FurnitureVariant> variants;

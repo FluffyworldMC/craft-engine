@@ -15,6 +15,8 @@ import net.momirealms.craftengine.core.item.Item;
 import net.momirealms.craftengine.core.item.ItemKeys;
 import net.momirealms.craftengine.core.item.component.DataComponentKeys;
 import net.momirealms.craftengine.core.plugin.config.ConfigConstants;
+import net.momirealms.craftengine.core.plugin.config.ConfigValue;
+import net.momirealms.craftengine.core.plugin.config.KnownResourceException;
 import net.momirealms.craftengine.core.plugin.config.ConfigKeys;
 import net.momirealms.craftengine.core.plugin.config.ConfigSection;
 import net.momirealms.craftengine.core.plugin.context.CommonConditions;
@@ -65,15 +67,15 @@ public final class ArmorStandFurnitureElementConfig implements TransformableFurn
         this.glowColor = glowColor;
         this.predicate = predicate;
         this.metadata = (player) -> {
-            List<Object> dataValues = new ArrayList<>(2);
-            if (glowColor != null) {
-                BaseEntityData.SharedFlags.addEntityData((byte) 0x60, dataValues);
-            } else {
-                BaseEntityData.SharedFlags.addEntityData((byte) 0x20, dataValues);
-            }
+            List<Object> dataValues = new ArrayList<>(4);
+            BaseEntityData.SharedFlags.addEntityData(glowColor != null ? (byte) 0x60 : (byte) 0x20, dataValues);
+            BaseEntityData.NoGravity.addEntityData(true, dataValues);
+            BaseEntityData.Silent.addEntityData(true, dataValues);
+            byte clientFlags = (byte) (0x04 | 0x08); // no base plate, marker
             if (small) {
-                ArmorStandData.ClientFlags.addEntityData((byte) 0x01, dataValues);
+                clientFlags |= 0x01;
             }
+            ArmorStandData.ClientFlags.addEntityData(clientFlags, dataValues);
             return dataValues;
         };
     }
@@ -124,7 +126,7 @@ public final class ArmorStandFurnitureElementConfig implements TransformableFurn
             boolean legacyTintSource = section.getBoolean(APPLY_DYED_COLOR, false);
             return new ArmorStandFurnitureElementConfig(
                     section.getNonNullIdentifier("item"),
-                    section.getFloat("scale", 1f),
+                    readScale(section),
                     section.getVector3f("position", ConfigConstants.ZERO_VECTOR3),
                     section.getFloat("pitch", 0f),
                     section.getFloat("yaw", 0f),
@@ -135,6 +137,18 @@ public final class ArmorStandFurnitureElementConfig implements TransformableFurn
                     section.getEnum(GLOW_COLOR, LegacyChatFormatter.class),
                     conditions.isEmpty() ? ConditionalFurnitureElement.ALWAYS_VISIBLE : MiscUtils.allOf(conditions)
             );
+        }
+
+        private static float readScale(ConfigSection section) {
+            ConfigValue value = section.getValue("scale");
+            if (value == null) {
+                return 1f;
+            }
+            try {
+                return value.getAsVector3f().y;
+            } catch (KnownResourceException ignored) {
+                return value.getAsFloat();
+            }
         }
     }
 }
