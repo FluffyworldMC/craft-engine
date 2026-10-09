@@ -31,6 +31,7 @@ items:
               - type: item_display
                 item: default:showcase
                 position: 0,0.5,0
+                scale: 1.6
             hitboxes:
               - position: 0,0,0
                 type: shulker

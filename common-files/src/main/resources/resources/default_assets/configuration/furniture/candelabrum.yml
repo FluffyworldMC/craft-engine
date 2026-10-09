@@ -154,6 +154,7 @@ furniture:
           - type: item_display
             item: default:candelabrum_ground
             position: 0,0.5,0
+            scale: 1.6
         hitboxes:
           - type: interaction
             can_use_item_on: true
@@ -170,6 +171,7 @@ furniture:
           - type: item_display
             item: default:candelabrum_lit_ground
             position: 0,0.5,0
+            scale: 1.6
         hitboxes:
           - type: interaction
             can_use_item_on: true
@@ -186,6 +188,7 @@ furniture:
           - type: item_display
             item: default:candelabrum_wall
             position: 0,0,0.5
+            scale: 1.6
         hitboxes:
           - type: interaction
             can_use_item_on: true
@@ -202,6 +205,7 @@ furniture:
           - type: item_display
             item: default:candelabrum_lit_wall
             position: 0,0,0.5
+            scale: 1.6
         hitboxes:
           - type: interaction
             can_use_item_on: true
@@ -218,6 +222,7 @@ furniture:
           - type: item_display
             item: default:candelabrum_ceiling
             position: 0,-0.5,0
+            scale: 1.6
         hitboxes:
           - type: interaction
             can_use_item_on: true
@@ -234,6 +239,7 @@ furniture:
           - type: item_display
             item: default:candelabrum_lit_ceiling
             position: 0,-0.5,0
+            scale: 1.6
         hitboxes:
           - type: interaction
             can_use_item_on: true

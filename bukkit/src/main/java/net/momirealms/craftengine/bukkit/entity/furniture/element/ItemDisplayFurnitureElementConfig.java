@@ -180,9 +180,11 @@ public final class ItemDisplayFurnitureElementConfig implements TransformableFur
             ConfigSection brightness = section.getSection("brightness");
             List<Condition<PlayerContext>> conditions = section.getSectionList(ConfigKeys.of("condition(s)"), CommonConditions::fromConfig);
             boolean legacyTintSource = section.getBoolean(APPLY_DYED_COLOR, false);
+            Vector3f scale = new Vector3f(section.getVector3f("scale", ConfigConstants.NORMAL_SCALE));
+            scale.mul(0.625f);
             return new ItemDisplayFurnitureElementConfig(
                     section.getNonNullIdentifier("item"),
-                    section.getVector3f("scale", ConfigConstants.NORMAL_SCALE),
+                    scale,
                     section.getVector3f("position", ConfigConstants.ZERO_VECTOR3),
                     section.getVector3f("translation", ConfigConstants.ZERO_VECTOR3),
                     section.getFloat("pitch", 0f),
