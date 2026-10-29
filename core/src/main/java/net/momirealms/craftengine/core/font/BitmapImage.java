@@ -10,6 +10,12 @@ import net.momirealms.craftengine.core.util.Key;
 import java.util.function.Supplier;
 
 public final class BitmapImage implements Supplier<JsonObject>, Image {
+    /**
+     * Maximum height used by the /em preview font.
+     * The real image is never modified, this only affects the preview shown in the command.
+     */
+    public static final int EM_PREVIEW_MAX_HEIGHT = 12;
+
     private final Key id;
     private final Key font;
     private final int height;
@@ -103,12 +109,37 @@ public final class BitmapImage implements Supplier<JsonObject>, Image {
         return this.id.hashCode();
     }
 
+    /**
+     * The font used by the /em preview. It contains the same glyphs as the original font,
+     * but with a smaller height for oversized images. It is not used anywhere else.
+     */
+    public Key previewFont() {
+        return Key.of(Key.CRAFTENGINE_NAMESPACE, "em_preview/" + this.font.namespace() + "/" + this.font.value());
+    }
+
+    /**
+     * The preview provider rendered by the /em command.
+     * Only images taller than {@link #EM_PREVIEW_MAX_HEIGHT} are actually scaled down.
+     */
+    public JsonObject previewJson() {
+        int previewHeight = Math.min(this.height, EM_PREVIEW_MAX_HEIGHT);
+        int previewAscent = this.ascent;
+        if (previewHeight != this.height && this.height > 0) {
+            previewAscent = Math.max(1, (int) Math.round(this.ascent * (double) previewHeight / this.height));
+        }
+        return toJson(previewHeight, previewAscent);
+    }
+
     @Override
     public JsonObject get() {
+        return toJson(this.height, this.ascent);
+    }
+
+    private JsonObject toJson(int height, int ascent) {
         JsonObject jsonObject = new JsonObject();
         jsonObject.addProperty("type", "bitmap");
-        jsonObject.addProperty("height", this.height);
-        jsonObject.addProperty("ascent", this.ascent);
+        jsonObject.addProperty("height", height);
+        jsonObject.addProperty("ascent", ascent);
         jsonObject.addProperty("file", this.file);
         JsonArray charArray = new JsonArray();
         jsonObject.add("chars", charArray);

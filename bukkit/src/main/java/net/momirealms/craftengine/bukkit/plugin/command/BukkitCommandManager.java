@@ -79,6 +79,7 @@ public final class BukkitCommandManager extends AbstractCommandManager<CommandSe
                 new EnableResourceCommand(this, plugin),
                 new DisableResourceCommand(this, plugin),
                 new ListResourceCommand(this, plugin),
+                new ImageListCommand(this, plugin),
                 new CreateResourceCommand(this, plugin),
                 new PackWorkflowCommand(this, plugin),
                 new PackPreferencePlayerCommand(this, plugin),

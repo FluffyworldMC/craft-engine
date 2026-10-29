@@ -3738,6 +3738,29 @@ public abstract class AbstractPackManager implements PackManager {
             } catch (IOException e) {
                 this.plugin.logger().error("Error writing font to " + fontPath.toAbsolutePath(), e);
             }
+
+            // Generate the preview font used by /em. It shares the same textures but clamps
+            // oversized glyphs, so the real in-game image remains untouched.
+            if (!sortedImages.isEmpty()) {
+                JsonObject previewJson = new JsonObject();
+                JsonArray previewProviders = new JsonArray();
+                for (BitmapImage image : sortedImages) {
+                    previewProviders.add(image.previewJson());
+                }
+                previewJson.add("providers", previewProviders);
+                Path previewPath = generatedPackPath.resolve("assets")
+                        .resolve(Key.CRAFTENGINE_NAMESPACE)
+                        .resolve("font")
+                        .resolve("em_preview")
+                        .resolve(namespacedKey.namespace())
+                        .resolve(namespacedKey.value() + ".json");
+                try {
+                    Files.createDirectories(previewPath.getParent());
+                    Files.writeString(previewPath, CharacterUtils.replaceDoubleBackslashU(previewJson.toString()));
+                } catch (IOException e) {
+                    this.plugin.logger().error("Error writing preview font to " + previewPath.toAbsolutePath(), e);
+                }
+            }
         }
 
         if (Config.resourcePack$overrideUniform()) {
