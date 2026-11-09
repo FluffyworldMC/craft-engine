@@ -18,11 +18,15 @@ import org.bukkit.command.CommandSender;
 import org.incendo.cloud.Command;
 import org.incendo.cloud.CommandManager;
 import org.incendo.cloud.parser.standard.IntegerParser;
+import org.incendo.cloud.parser.standard.StringParser;
+import org.incendo.cloud.suggestion.Suggestion;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Lists loaded images. The output is sent directly to the command sender so other players
@@ -39,18 +43,61 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
     @Override
     public Command.Builder<? extends CommandSender> assembleCommand(CommandManager<CommandSender> manager, Command.Builder<CommandSender> builder) {
         return builder
-                .optional("page", IntegerParser.integerParser(1))
+                .optional("images", StringParser.stringComponent().suggestionProvider((context, input) -> {
+                    List<Suggestion> suggestions = new ArrayList<>();
+                    suggestions.add(Suggestion.suggestion("pages"));
+                    plugin().fontManager().loadedImages().keySet().stream()
+                            .map(Key::asString)
+                            .sorted()
+                            .map(Suggestion::suggestion)
+                            .forEach(suggestions::add);
+                    return CompletableFuture.completedFuture(suggestions);
+                }))
+                .optional("page", IntegerParser.integerParser(), (context, input) -> {
+                    String query = normalizeFilter(context.getOrDefault("images", null));
+                    int totalPages = totalPages(filterImages(allImages(), query));
+                    List<Suggestion> suggestions = new ArrayList<>(totalPages);
+                    for (int i = 1; i <= totalPages; i++) {
+                        suggestions.add(Suggestion.suggestion(String.valueOf(i)));
+                    }
+                    return CompletableFuture.completedFuture(suggestions);
+                })
                 .handler(context -> {
                     Sender sender = plugin().senderFactory().wrap(context.sender());
-                    List<Map.Entry<Key, Image>> images = new ArrayList<>(plugin().fontManager().loadedImages().entrySet());
-                    images.sort(Comparator.comparing(entry -> entry.getKey().asString()));
+                    String rawQuery = context.getOrDefault("images", null);
+                    Integer pageArgument = context.getOrDefault("page", null);
+                    int requestedPage = pageArgument == null ? 1 : pageArgument;
+
+                    String query = rawQuery;
+                    if (query != null) {
+                        if (query.equalsIgnoreCase("pages")) {
+                            query = null;
+                        } else {
+                            Integer numericQuery = tryParseInt(query);
+                            if (numericQuery != null) {
+                                if (pageArgument == null) {
+                                    requestedPage = numericQuery;
+                                }
+                                query = null;
+                            }
+                        }
+                    }
+
+                    List<Map.Entry<Key, Image>> images = allImages();
+                    if (query != null && !query.isBlank()) {
+                        images = filterImages(images, query);
+                    }
                     if (images.isEmpty()) {
-                        sender.sendMessage(Component.text("No images loaded.", NamedTextColor.GRAY));
+                        if (query != null && !query.isBlank()) {
+                            sender.sendMessage(Component.text("No images found for '" + query + "'.", NamedTextColor.GRAY));
+                        } else {
+                            sender.sendMessage(Component.text("No images loaded.", NamedTextColor.GRAY));
+                        }
                         return;
                     }
 
-                    int totalPages = (images.size() + PAGE_SIZE - 1) / PAGE_SIZE;
-                    int page = Math.max(1, Math.min(context.getOrDefault("page", 1), totalPages));
+                    int totalPages = totalPages(images);
+                    int page = Math.max(1, Math.min(requestedPage, totalPages));
                     int start = (page - 1) * PAGE_SIZE;
                     int end = Math.min(start + PAGE_SIZE, images.size());
 
@@ -59,7 +106,9 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
                     Component pageComponent = Component.empty()
                             .append(Component.text("Images ", NamedTextColor.GOLD, TextDecoration.BOLD))
                             .append(Component.text("(" + page + "/" + totalPages + ")", NamedTextColor.GRAY))
-                            .append(Component.text(" - " + images.size() + " total", NamedTextColor.DARK_GRAY));
+                            .append(Component.text(query == null || query.isBlank()
+                                    ? " - " + images.size() + " total"
+                                    : " - " + images.size() + " matching '" + query + "'", NamedTextColor.DARK_GRAY));
 
                     for (int i = start; i < end; i++) {
                         Map.Entry<Key, Image> entry = images.get(i);
@@ -70,10 +119,58 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
 
                     pageComponent = pageComponent
                             .append(Component.newline())
-                            .append(renderFooter(commandBase(), page, totalPages));
+                            .append(renderFooter(commandBase(), query, page, totalPages));
 
                     sender.sendMessage(pageComponent);
                 });
+    }
+
+    private List<Map.Entry<Key, Image>> allImages() {
+        List<Map.Entry<Key, Image>> images = new ArrayList<>(plugin().fontManager().loadedImages().entrySet());
+        images.sort(Comparator.comparing(entry -> entry.getKey().asString()));
+        return images;
+    }
+
+    private static int totalPages(List<Map.Entry<Key, Image>> images) {
+        return Math.max(1, (images.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+    }
+
+    private static String normalizeFilter(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        if (raw.equalsIgnoreCase("pages")) return null;
+        if (tryParseInt(raw) != null) return null;
+        return raw;
+    }
+
+    private static Integer tryParseInt(String value) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static List<Map.Entry<Key, Image>> filterImages(List<Map.Entry<Key, Image>> images, String query) {
+        if (query == null || query.isBlank()) {
+            return images;
+        }
+        List<Map.Entry<Key, Image>> exactMatches = new ArrayList<>();
+        for (Map.Entry<Key, Image> entry : images) {
+            if (entry.getKey().asString().equalsIgnoreCase(query)) {
+                exactMatches.add(entry);
+            }
+        }
+        if (!exactMatches.isEmpty()) {
+            return exactMatches;
+        }
+        String lowerQuery = query.toLowerCase(Locale.ROOT);
+        List<Map.Entry<Key, Image>> matches = new ArrayList<>();
+        for (Map.Entry<Key, Image> entry : images) {
+            if (entry.getKey().asString().toLowerCase(Locale.ROOT).contains(lowerQuery)) {
+                matches.add(entry);
+            }
+        }
+        return matches;
     }
 
     private static Component renderImage(int index, Key id, Image image) {
@@ -145,17 +242,20 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
         return "/em";
     }
 
-    private static Component renderFooter(String commandBase, int page, int totalPages) {
+    private static Component renderFooter(String commandBase, String query, int page, int totalPages) {
+        String commandPrefix = query == null || query.isBlank()
+                ? commandBase + " pages "
+                : commandBase + " " + query + " ";
         Component previous = page > 1
                 ? Component.text("[< Prev]", NamedTextColor.GOLD)
                     .hoverEvent(HoverEvent.showText(Component.text("Page " + (page - 1), NamedTextColor.GRAY)))
-                    .clickEvent(ClickEvent.runCommand(commandBase + " " + (page - 1)))
+                    .clickEvent(ClickEvent.runCommand(commandPrefix + (page - 1)))
                 : Component.text("[< Prev]", NamedTextColor.DARK_GRAY);
 
         Component next = page < totalPages
                 ? Component.text("[Next >]", NamedTextColor.GOLD)
                     .hoverEvent(HoverEvent.showText(Component.text("Page " + (page + 1), NamedTextColor.GRAY)))
-                    .clickEvent(ClickEvent.runCommand(commandBase + " " + (page + 1)))
+                    .clickEvent(ClickEvent.runCommand(commandPrefix + (page + 1)))
                 : Component.text("[Next >]", NamedTextColor.DARK_GRAY);
 
         return Component.text("  ")
