@@ -23,9 +23,11 @@ import org.incendo.cloud.suggestion.Suggestion;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -45,17 +47,27 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
         return builder
                 .optional("images", StringParser.stringComponent().suggestionProvider((context, input) -> {
                     List<Suggestion> suggestions = new ArrayList<>();
-                    suggestions.add(Suggestion.suggestion("pages"));
-                    plugin().fontManager().loadedImages().keySet().stream()
-                            .map(Key::asString)
-                            .sorted()
-                            .map(Suggestion::suggestion)
-                            .forEach(suggestions::add);
+                    String typed = input.remainingInput().trim();
+                    String lowerTyped = typed.toLowerCase(Locale.ROOT);
+                    if (typed.isEmpty() || "pages".startsWith(lowerTyped)) {
+                        suggestions.add(Suggestion.suggestion("pages"));
+                    }
+                    Set<String> seenSymbols = new LinkedHashSet<>();
+                    for (Map.Entry<Key, Image> entry : allImages()) {
+                        if (!typed.isEmpty() && !entry.getKey().asString().toLowerCase(Locale.ROOT).contains(lowerTyped)) {
+                            continue;
+                        }
+                        RawCell rawCell = resolveRawCell(entry.getValue());
+                        if (rawCell == null || rawCell.raw().isEmpty() || !seenSymbols.add(rawCell.raw())) {
+                            continue;
+                        }
+                        suggestions.add(Suggestion.suggestion(rawCell.raw()));
+                    }
                     return CompletableFuture.completedFuture(suggestions);
                 }))
                 .optional("page", IntegerParser.integerParser(), (context, input) -> {
                     String query = normalizeFilter(context.getOrDefault("images", null));
-                    int totalPages = totalPages(filterImages(allImages(), query));
+                    int totalPages = totalPages(query == null ? allImages() : matchImages(allImages(), query));
                     List<Suggestion> suggestions = new ArrayList<>(totalPages);
                     for (int i = 1; i <= totalPages; i++) {
                         suggestions.add(Suggestion.suggestion(String.valueOf(i)));
@@ -85,7 +97,7 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
 
                     List<Map.Entry<Key, Image>> images = allImages();
                     if (query != null && !query.isBlank()) {
-                        images = filterImages(images, query);
+                        images = matchImages(images, query);
                     }
                     if (images.isEmpty()) {
                         if (query != null && !query.isBlank()) {
@@ -150,10 +162,24 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
         }
     }
 
-    private static List<Map.Entry<Key, Image>> filterImages(List<Map.Entry<Key, Image>> images, String query) {
+    private static List<Map.Entry<Key, Image>> matchImages(List<Map.Entry<Key, Image>> images, String query) {
         if (query == null || query.isBlank()) {
             return images;
         }
+        List<Map.Entry<Key, Image>> symbolMatches = new ArrayList<>();
+        for (Map.Entry<Key, Image> entry : images) {
+            RawCell rawCell = resolveRawCell(entry.getValue());
+            if (rawCell != null && rawCell.raw().equals(query)) {
+                symbolMatches.add(entry);
+            }
+        }
+        if (!symbolMatches.isEmpty()) {
+            return symbolMatches;
+        }
+        return filterImagesByName(images, query);
+    }
+
+    private static List<Map.Entry<Key, Image>> filterImagesByName(List<Map.Entry<Key, Image>> images, String query) {
         List<Map.Entry<Key, Image>> exactMatches = new ArrayList<>();
         for (Map.Entry<Key, Image> entry : images) {
             if (entry.getKey().asString().equalsIgnoreCase(query)) {
@@ -265,6 +291,20 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
     }
 
     private static Cell resolveCell(Image image) {
+        RawCell rawCell = resolveRawCell(image);
+        if (rawCell == null) {
+            return null;
+        }
+        BitmapImage bitmap = rawCell.bitmap();
+        Key font = bitmap.height() > BitmapImage.EM_PREVIEW_MAX_HEIGHT ? bitmap.previewFont() : bitmap.font();
+        Component preview = Component.text(rawCell.raw())
+                .color(NamedTextColor.WHITE)
+                .decoration(TextDecoration.ITALIC, false)
+                .font(net.kyori.adventure.key.Key.key(font.namespace(), font.value()));
+        return new Cell(rawCell.raw(), preview, bitmap);
+    }
+
+    private static RawCell resolveRawCell(Image image) {
         int row = 0;
         int column = 0;
         Image target = image;
@@ -286,13 +326,7 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
             column = firstVisible[1];
             codepoint = bitmap.codepointAt(row, column);
         }
-        String raw = new String(Character.toChars(codepoint));
-        Key font = bitmap.height() > BitmapImage.EM_PREVIEW_MAX_HEIGHT ? bitmap.previewFont() : bitmap.font();
-        Component preview = Component.text(raw)
-                .color(NamedTextColor.WHITE)
-                .decoration(TextDecoration.ITALIC, false)
-                .font(net.kyori.adventure.key.Key.key(font.namespace(), font.value()));
-        return new Cell(raw, preview, bitmap);
+        return new RawCell(new String(Character.toChars(codepoint)), bitmap);
     }
 
     private static int[] firstVisibleCell(BitmapImage image) {
@@ -307,6 +341,9 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
     }
 
     private record Cell(String raw, Component preview, BitmapImage bitmap) {
+    }
+
+    private record RawCell(String raw, BitmapImage bitmap) {
     }
 
     @Override
