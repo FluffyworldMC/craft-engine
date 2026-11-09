@@ -10,6 +10,7 @@ import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.entity.player.Player;
 import net.momirealms.craftengine.core.font.BitmapImage;
 import net.momirealms.craftengine.core.font.Font;
+import net.momirealms.craftengine.core.font.ImagePreviewAliases;
 import net.momirealms.craftengine.core.item.ItemKeys;
 import net.momirealms.craftengine.core.item.equipment.ComponentBasedEquipment;
 import net.momirealms.craftengine.core.item.equipment.Equipment;
@@ -3760,6 +3761,43 @@ public abstract class AbstractPackManager implements PackManager {
                 } catch (IOException e) {
                     this.plugin.logger().error("Error writing preview font to " + previewPath.toAbsolutePath(), e);
                 }
+            }
+        }
+
+        // Register aliases for oversized images in minecraft:default. Tab completion can
+        // only use the default font, so these aliases let /em show a scaled preview there
+        // without changing the real image codepoints.
+        Map<Key, ImagePreviewAliases.Alias> aliases = ImagePreviewAliases.create(this.plugin.fontManager());
+        if (!aliases.isEmpty()) {
+            Path defaultFontPath = generatedPackPath.resolve("assets")
+                    .resolve("minecraft")
+                    .resolve("font")
+                    .resolve("default.json");
+            JsonObject defaultFont = Files.exists(defaultFontPath) ? readJsonObjectFromFileOrWarn(defaultFontPath) : null;
+            if (defaultFont == null) {
+                defaultFont = new JsonObject();
+            }
+            JsonArray providers;
+            if (defaultFont.has("providers")) {
+                providers = defaultFont.getAsJsonArray("providers");
+            } else {
+                providers = new JsonArray();
+                defaultFont.add("providers", providers);
+            }
+            for (ImagePreviewAliases.Alias alias : aliases.values()) {
+                providers.add(alias.bitmap().aliasJson(
+                        Character.codePointAt(alias.raw(), 0),
+                        alias.row(),
+                        alias.column(),
+                        alias.height(),
+                        alias.ascent()
+                ));
+            }
+            try {
+                Files.createDirectories(defaultFontPath.getParent());
+                Files.writeString(defaultFontPath, CharacterUtils.replaceDoubleBackslashU(defaultFont.toString()));
+            } catch (IOException e) {
+                this.plugin.logger().error("Error writing image tab-completion aliases to " + defaultFontPath.toAbsolutePath(), e);
             }
         }
 

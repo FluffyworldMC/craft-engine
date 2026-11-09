@@ -130,6 +130,29 @@ public final class BitmapImage implements Supplier<JsonObject>, Image {
         return toJson(previewHeight, previewAscent);
     }
 
+    /**
+     * Builds a bitmap provider that maps a single alias codepoint to one cell of this image.
+     * Used by tab completion, which can only use minecraft:default.
+     */
+    public JsonObject aliasJson(int aliasCodepoint, int row, int column, int height, int ascent) {
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("type", "bitmap");
+        jsonObject.addProperty("height", height);
+        jsonObject.addProperty("ascent", ascent);
+        jsonObject.addProperty("file", this.file);
+        JsonArray charArray = new JsonArray();
+        jsonObject.add("chars", charArray);
+        for (int i = 0; i < this.codepointGrid.length; i++) {
+            StringBuilder stringBuilder = new StringBuilder();
+            for (int j = 0; j < this.codepointGrid[i].length; j++) {
+                int codepoint = i == row && j == column ? aliasCodepoint : 0;
+                stringBuilder.append(CharacterUtils.encodeCharsToUnicode(Character.toChars(codepoint)));
+            }
+            charArray.add(stringBuilder.toString());
+        }
+        return jsonObject;
+    }
+
     @Override
     public JsonObject get() {
         return toJson(this.height, this.ascent);

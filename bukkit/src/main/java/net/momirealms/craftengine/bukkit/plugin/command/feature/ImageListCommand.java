@@ -9,6 +9,7 @@ import net.momirealms.craftengine.bukkit.plugin.command.BukkitCommandFeature;
 import net.momirealms.craftengine.bukkit.util.ImageUtils;
 import net.momirealms.craftengine.core.font.BitmapImage;
 import net.momirealms.craftengine.core.font.Image;
+import net.momirealms.craftengine.core.font.ImagePreviewAliases;
 import net.momirealms.craftengine.core.font.ReferenceImage;
 import net.momirealms.craftengine.core.plugin.CraftEngine;
 import net.momirealms.craftengine.core.plugin.command.CraftEngineCommandManager;
@@ -148,9 +149,18 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
         }
     }
 
-    private static List<Map.Entry<Key, Image>> matchImages(List<Map.Entry<Key, Image>> images, String query) {
+    private List<Map.Entry<Key, Image>> matchImages(List<Map.Entry<Key, Image>> images, String query) {
         if (query == null || query.isBlank()) {
             return images;
+        }
+        for (ImagePreviewAliases.Alias alias : ImagePreviewAliases.create(plugin().fontManager()).values()) {
+            if (alias.raw().equals(query)) {
+                for (Map.Entry<Key, Image> entry : images) {
+                    if (entry.getKey().equals(alias.id())) {
+                        return List.of(entry);
+                    }
+                }
+            }
         }
         List<Map.Entry<Key, Image>> symbolMatches = new ArrayList<>();
         for (Map.Entry<Key, Image> entry : images) {
