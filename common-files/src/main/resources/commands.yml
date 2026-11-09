@@ -160,6 +160,7 @@ images:
   permission: ce.command.admin.images
   usage:
     - /em
+    - /e
     - /images
 
 create_resource:

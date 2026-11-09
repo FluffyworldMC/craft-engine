@@ -6,6 +6,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.momirealms.craftengine.bukkit.plugin.command.BukkitCommandFeature;
+import net.momirealms.craftengine.bukkit.util.ImageUtils;
 import net.momirealms.craftengine.core.font.BitmapImage;
 import net.momirealms.craftengine.core.font.Image;
 import net.momirealms.craftengine.core.font.ReferenceImage;
@@ -22,12 +23,9 @@ import org.incendo.cloud.parser.standard.StringParser;
 import org.incendo.cloud.suggestion.Suggestion;
 
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -46,22 +44,12 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
     public Command.Builder<? extends CommandSender> assembleCommand(CommandManager<CommandSender> manager, Command.Builder<CommandSender> builder) {
         return builder
                 .optional("images", StringParser.stringComponent().suggestionProvider((context, input) -> {
+                    // Paper servers use ImageTabCompleter to replace these with image glyphs.
+                    // This text fallback keeps the command usable on non-Paper platforms.
                     List<Suggestion> suggestions = new ArrayList<>();
-                    String typed = input.remainingInput().trim();
-                    String lowerTyped = typed.toLowerCase(Locale.ROOT);
-                    if (typed.isEmpty() || "pages".startsWith(lowerTyped)) {
-                        suggestions.add(Suggestion.suggestion("pages"));
-                    }
-                    Set<String> seenSymbols = new LinkedHashSet<>();
+                    suggestions.add(Suggestion.suggestion("pages"));
                     for (Map.Entry<Key, Image> entry : allImages()) {
-                        if (!typed.isEmpty() && !entry.getKey().asString().toLowerCase(Locale.ROOT).contains(lowerTyped)) {
-                            continue;
-                        }
-                        RawCell rawCell = resolveRawCell(entry.getValue());
-                        if (rawCell == null || rawCell.raw().isEmpty() || !seenSymbols.add(rawCell.raw())) {
-                            continue;
-                        }
-                        suggestions.add(Suggestion.suggestion(rawCell.raw()));
+                        suggestions.add(Suggestion.suggestion(entry.getKey().asString()));
                     }
                     return CompletableFuture.completedFuture(suggestions);
                 }))
@@ -138,9 +126,7 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
     }
 
     private List<Map.Entry<Key, Image>> allImages() {
-        List<Map.Entry<Key, Image>> images = new ArrayList<>(plugin().fontManager().loadedImages().entrySet());
-        images.sort(Comparator.comparing(entry -> entry.getKey().asString()));
-        return images;
+        return ImageUtils.sortedImages(plugin());
     }
 
     private static int totalPages(List<Map.Entry<Key, Image>> images) {
@@ -168,7 +154,7 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
         }
         List<Map.Entry<Key, Image>> symbolMatches = new ArrayList<>();
         for (Map.Entry<Key, Image> entry : images) {
-            RawCell rawCell = resolveRawCell(entry.getValue());
+            ImageUtils.RawCell rawCell = ImageUtils.resolveRawCell(entry.getValue());
             if (rawCell != null && rawCell.raw().equals(query)) {
                 symbolMatches.add(entry);
             }
@@ -291,7 +277,7 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
     }
 
     private static Cell resolveCell(Image image) {
-        RawCell rawCell = resolveRawCell(image);
+        ImageUtils.RawCell rawCell = ImageUtils.resolveRawCell(image);
         if (rawCell == null) {
             return null;
         }
@@ -304,46 +290,7 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
         return new Cell(rawCell.raw(), preview, bitmap);
     }
 
-    private static RawCell resolveRawCell(Image image) {
-        int row = 0;
-        int column = 0;
-        Image target = image;
-        if (image instanceof ReferenceImage referenceImage) {
-            row = referenceImage.row();
-            column = referenceImage.col();
-            target = referenceImage.image();
-        }
-        if (!(target instanceof BitmapImage bitmap)) {
-            return null;
-        }
-        int codepoint = bitmap.isValidCoordinate(row, column) ? bitmap.codepointAt(row, column) : 0;
-        if (codepoint == 0) {
-            int[] firstVisible = firstVisibleCell(bitmap);
-            if (firstVisible == null) {
-                return null;
-            }
-            row = firstVisible[0];
-            column = firstVisible[1];
-            codepoint = bitmap.codepointAt(row, column);
-        }
-        return new RawCell(new String(Character.toChars(codepoint)), bitmap);
-    }
-
-    private static int[] firstVisibleCell(BitmapImage image) {
-        for (int row = 0; row < image.rows(); row++) {
-            for (int column = 0; column < image.columns(); column++) {
-                if (image.codepointAt(row, column) != 0) {
-                    return new int[]{row, column};
-                }
-            }
-        }
-        return null;
-    }
-
     private record Cell(String raw, Component preview, BitmapImage bitmap) {
-    }
-
-    private record RawCell(String raw, BitmapImage bitmap) {
     }
 
     @Override

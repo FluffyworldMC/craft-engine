@@ -297,6 +297,7 @@ public final class BukkitCraftEngine extends CraftEngine {
         if (VersionHelper.hasPaperPatch) {
             this.serverEventListener = new ServerEventListener(this);
             Bukkit.getPluginManager().registerEvents(this.serverEventListener, javaPlugin());
+            Bukkit.getPluginManager().registerEvents(new ImageTabCompleter(this), javaPlugin());
         }
     }
 
