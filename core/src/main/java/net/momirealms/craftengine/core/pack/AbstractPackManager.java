@@ -10,7 +10,6 @@ import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.entity.player.Player;
 import net.momirealms.craftengine.core.font.BitmapImage;
 import net.momirealms.craftengine.core.font.Font;
-import net.momirealms.craftengine.core.font.ImagePreviewAliases;
 import net.momirealms.craftengine.core.item.ItemKeys;
 import net.momirealms.craftengine.core.item.equipment.ComponentBasedEquipment;
 import net.momirealms.craftengine.core.item.equipment.Equipment;
@@ -3738,66 +3737,6 @@ public abstract class AbstractPackManager implements PackManager {
                 Files.writeString(fontPath, CharacterUtils.replaceDoubleBackslashU(fontJson.toString()));
             } catch (IOException e) {
                 this.plugin.logger().error("Error writing font to " + fontPath.toAbsolutePath(), e);
-            }
-
-            // Generate the preview font used by /em. It shares the same textures but clamps
-            // oversized glyphs, so the real in-game image remains untouched.
-            if (!sortedImages.isEmpty()) {
-                JsonObject previewJson = new JsonObject();
-                JsonArray previewProviders = new JsonArray();
-                for (BitmapImage image : sortedImages) {
-                    previewProviders.add(image.previewJson());
-                }
-                previewJson.add("providers", previewProviders);
-                Path previewPath = generatedPackPath.resolve("assets")
-                        .resolve(Key.CRAFTENGINE_NAMESPACE)
-                        .resolve("font")
-                        .resolve("em_preview")
-                        .resolve(namespacedKey.namespace())
-                        .resolve(namespacedKey.value() + ".json");
-                try {
-                    Files.createDirectories(previewPath.getParent());
-                    Files.writeString(previewPath, CharacterUtils.replaceDoubleBackslashU(previewJson.toString()));
-                } catch (IOException e) {
-                    this.plugin.logger().error("Error writing preview font to " + previewPath.toAbsolutePath(), e);
-                }
-            }
-        }
-
-        // Register aliases for oversized images in minecraft:default. Tab completion can
-        // only use the default font, so these aliases let /em show a scaled preview there
-        // without changing the real image codepoints.
-        Map<Key, ImagePreviewAliases.Alias> aliases = ImagePreviewAliases.create(this.plugin.fontManager());
-        if (!aliases.isEmpty()) {
-            Path defaultFontPath = generatedPackPath.resolve("assets")
-                    .resolve("minecraft")
-                    .resolve("font")
-                    .resolve("default.json");
-            JsonObject defaultFont = Files.exists(defaultFontPath) ? readJsonObjectFromFileOrWarn(defaultFontPath) : null;
-            if (defaultFont == null) {
-                defaultFont = new JsonObject();
-            }
-            JsonArray providers;
-            if (defaultFont.has("providers")) {
-                providers = defaultFont.getAsJsonArray("providers");
-            } else {
-                providers = new JsonArray();
-                defaultFont.add("providers", providers);
-            }
-            for (ImagePreviewAliases.Alias alias : aliases.values()) {
-                providers.add(alias.bitmap().aliasJson(
-                        Character.codePointAt(alias.raw(), 0),
-                        alias.row(),
-                        alias.column(),
-                        alias.height(),
-                        alias.ascent()
-                ));
-            }
-            try {
-                Files.createDirectories(defaultFontPath.getParent());
-                Files.writeString(defaultFontPath, CharacterUtils.replaceDoubleBackslashU(defaultFont.toString()));
-            } catch (IOException e) {
-                this.plugin.logger().error("Error writing image tab-completion aliases to " + defaultFontPath.toAbsolutePath(), e);
             }
         }
 

@@ -3,7 +3,6 @@ package net.momirealms.craftengine.bukkit.plugin;
 import com.destroystokyo.paper.event.server.AsyncTabCompleteEvent;
 import net.momirealms.craftengine.bukkit.util.ImageUtils;
 import net.momirealms.craftengine.core.font.Image;
-import net.momirealms.craftengine.core.font.ImagePreviewAliases;
 import net.momirealms.craftengine.core.plugin.CraftEngine;
 import net.momirealms.craftengine.core.util.Key;
 import org.bukkit.event.EventHandler;
@@ -58,27 +57,16 @@ public final class ImageTabCompleter implements Listener {
         if (argument.isEmpty() || "pages".startsWith(lowerArgument)) {
             completions.add("pages");
         }
-        Map<Key, ImagePreviewAliases.Alias> aliases = ImagePreviewAliases.create(this.plugin.fontManager());
         Set<String> seen = new LinkedHashSet<>();
         for (Map.Entry<Key, Image> entry : ImageUtils.sortedImages(this.plugin)) {
             if (!argument.isEmpty() && !entry.getKey().asString().toLowerCase(Locale.ROOT).contains(lowerArgument)) {
                 continue;
             }
-            ImagePreviewAliases.Alias alias = aliases.get(entry.getKey());
-            String raw;
-            if (alias != null) {
-                raw = alias.raw();
-            } else {
-                ImageUtils.RawCell rawCell = ImageUtils.resolveRawCell(entry.getValue());
-                if (rawCell == null) {
-                    continue;
-                }
-                raw = rawCell.raw();
-            }
-            if (raw.isEmpty() || !seen.add(raw)) {
+            ImageUtils.RawCell rawCell = ImageUtils.resolveRawCell(entry.getValue());
+            if (rawCell == null || rawCell.raw().isEmpty() || !seen.add(rawCell.raw())) {
                 continue;
             }
-            completions.add(raw);
+            completions.add(rawCell.raw());
         }
         event.setCompletions(completions);
         event.setHandled(true);

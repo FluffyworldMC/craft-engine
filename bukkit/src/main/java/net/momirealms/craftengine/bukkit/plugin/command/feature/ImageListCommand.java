@@ -9,7 +9,6 @@ import net.momirealms.craftengine.bukkit.plugin.command.BukkitCommandFeature;
 import net.momirealms.craftengine.bukkit.util.ImageUtils;
 import net.momirealms.craftengine.core.font.BitmapImage;
 import net.momirealms.craftengine.core.font.Image;
-import net.momirealms.craftengine.core.font.ImagePreviewAliases;
 import net.momirealms.craftengine.core.font.ReferenceImage;
 import net.momirealms.craftengine.core.plugin.CraftEngine;
 import net.momirealms.craftengine.core.plugin.command.CraftEngineCommandManager;
@@ -31,8 +30,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Lists loaded images. The output is sent directly to the command sender so other players
- * never see it. A separate preview font is used for oversized images, keeping this list
- * compact without changing the real image definition.
+ * never see it.
  */
 public final class ImageListCommand extends BukkitCommandFeature<CommandSender> {
     private static final int PAGE_SIZE = 10;
@@ -149,18 +147,9 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
         }
     }
 
-    private List<Map.Entry<Key, Image>> matchImages(List<Map.Entry<Key, Image>> images, String query) {
+    private static List<Map.Entry<Key, Image>> matchImages(List<Map.Entry<Key, Image>> images, String query) {
         if (query == null || query.isBlank()) {
             return images;
-        }
-        for (ImagePreviewAliases.Alias alias : ImagePreviewAliases.create(plugin().fontManager()).values()) {
-            if (alias.raw().equals(query)) {
-                for (Map.Entry<Key, Image> entry : images) {
-                    if (entry.getKey().equals(alias.id())) {
-                        return List.of(entry);
-                    }
-                }
-            }
         }
         List<Map.Entry<Key, Image>> symbolMatches = new ArrayList<>();
         for (Map.Entry<Key, Image> entry : images) {
@@ -248,10 +237,6 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
                     .append(Component.text("Reference: ", NamedTextColor.GRAY))
                     .append(Component.text(referenceImage.reference().asString() + ":" + referenceImage.row() + ":" + referenceImage.col(), NamedTextColor.WHITE));
         }
-        if (bitmap.height() > BitmapImage.EM_PREVIEW_MAX_HEIGHT) {
-            hover = hover.append(Component.newline())
-                    .append(Component.text("Preview scaled to " + BitmapImage.EM_PREVIEW_MAX_HEIGHT + "px for /em only", NamedTextColor.YELLOW));
-        }
         return hover.append(Component.newline())
                 .append(Component.text("Click the symbol to copy it", NamedTextColor.GREEN));
     }
@@ -292,7 +277,7 @@ public final class ImageListCommand extends BukkitCommandFeature<CommandSender> 
             return null;
         }
         BitmapImage bitmap = rawCell.bitmap();
-        Key font = bitmap.height() > BitmapImage.EM_PREVIEW_MAX_HEIGHT ? bitmap.previewFont() : bitmap.font();
+        Key font = bitmap.font();
         Component preview = Component.text(rawCell.raw())
                 .color(NamedTextColor.WHITE)
                 .decoration(TextDecoration.ITALIC, false)
